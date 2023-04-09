@@ -124,6 +124,19 @@ int mm_init(void)
     return 0;
 }
 
+void *find_fit(size_t asize) // first-fit 시행
+{
+    void *bp;
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) // block들의 시작위치를 하나씩 증가시켜가면서 검색
+    {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) // 해당 block이 할당되지 않았고, block의 사이즈가 요구하는 size보다 크다면 할당
+        {
+            return bp;
+        }
+    }
+    return NULL;
+}
+
 void *mm_malloc(size_t size) // 가용 리스트에서 블록 할당 하기
 {
     size_t asize;      // 조정된 블록 사이즈
