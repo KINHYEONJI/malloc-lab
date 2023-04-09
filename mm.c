@@ -56,6 +56,39 @@ team_t team = {
 
 static char *heap_listp; // 처음에 쓸 가용블록을 생성
 
+void *coalesce(void *bp) // prev, next 둘 다 할당, 둘 중 하나 할당, 둘 다 미할당 경우 나눠서 생각하기
+{
+    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp))); // prev block의 alloc 상태 ||  GET_ALLOC((char *)bp - DSIZE)
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp))); // next block의 alloc 상태 || GET_ALLOC(FTRP(bp) + WSIZE)
+    size_t size = GET_SIZE(HDRP(bp));                   // bp가 가리키는 block의 size
+
+    if (prev_alloc && next_alloc) // prev, next 모두 할당 상태 -> 그대로 반환
+    {
+        return bp;
+    }
+    else if (prev_alloc && !next_alloc) // prev 할당 상태, next 가용 상태 -> next와 병합
+    {
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 다음 block의 size를 알아낸 후 size 증가 || GET_SIZE(FTRP(bp) + WSIZE)
+        PUT(HDRP(bp), PACK(size, 0));          // header 갱신
+        PUT(FTRP(bp), PACK(size, 0));          // footer 갱신
+    }
+    else if (!prev_alloc && next_alloc) // prev 가용 상태, next 할당 상태 -> prev와 병합
+    {
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));   // 이전 block의 size를 알아낸 후 size 증가 || GET_SIZE((char *)(bp) - DSIZE)
+        PUT(FTRP(bp), PACK(size, 0));            // header 갱신
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0)); // footer 갱신
+        bp = PREV_BLKP(bp);
+    }
+    else // prev, next 모두 가용 상태 -> 전부 병합
+    {
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp))); // 앞 뒤 block의 size를 알아낸 후 size 증가
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));                               // header 갱신
+        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));                               // footer 갱신
+        bp = PREV_BLKP(bp);
+    }
+    return bp;
+}
+
 void *extend_heap(size_t words)
 {
     char *bp;
@@ -69,6 +102,8 @@ void *extend_heap(size_t words)
     PUT(HDRP(bp), PACK(size, 0));         // free block header
     PUT(FTRP(bp), PACK(size, 0));         // free block footer
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); // epilogue header 추가
+
+    return coalesce(bp); // prev_block이 free라면 coalesce
 }
 
 int mm_init(void)
