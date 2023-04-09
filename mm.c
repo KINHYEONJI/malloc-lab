@@ -137,6 +137,24 @@ void *find_fit(size_t asize) // first-fit 시행
     return NULL;
 }
 
+void place(void *bp, size_t asize) // 가용 가능한 block(bp)에 요청한 사이즈(asize)의 block을 배치, 나머지 부분의 크기가 최소 블록크기와 같거나 큰 경우에 분할
+{
+    size_t csize = GET_SIZE(HDRP(bp));  // find_fit으로 찾은 가용 가능한 block의 size
+    if ((csize - asize) >= (2 * DSIZE)) // 요청한 size(asize)와 가용가능한 block의 사이즈(csize)의 차이가 DSIZE*2(최소 block)크기 보다 클 경우 (남은 부분에 다른 block을 넣을 수 있는 경우)
+    {
+        PUT(HDRP(bp), PACK(asize, 1)); // 배치를 요청힌 block의 header위치
+        PUT(FTRP(bp), PACK(asize, 1)); // 베치를 요청한 blcok의 footer위치
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(csize - asize, 0)); // 분할된 block(가용 상태) header위치
+        PUT(FTRP(bp), PACK(csize - asize, 0)); // 분할된 block(가용 상태) footer위치
+    }
+    else // 요청한 size 만큼 block을 할당하고 남은 부분에 다른 block을 할당하지 못하는 경우 -> 분할 필요 없음
+    {
+        PUT(HDRP(bp), PACK(csize, 1)); // header위치
+        PUT(FTRP(bp), PACK(csize, 1)); // footer위치
+    }
+}
+
 void *mm_malloc(size_t size) // 가용 리스트에서 블록 할당 하기
 {
     size_t asize;      // 조정된 블록 사이즈
@@ -157,6 +175,8 @@ void *mm_malloc(size_t size) // 가용 리스트에서 블록 할당 하기
 
     if ((bp = find_fit(asize)) != NULL) // fit 조건에 맞는 free list 검색
     {
+        place(bp, asize);
+        return bp;
     }
     else // fit 조건에 맞는 block이 없을 경우 -> extend_heap을 통해 heap 확장
     {
