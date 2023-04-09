@@ -48,13 +48,28 @@ team_t team = {
 #define GET_SIZE(p) (GET(p) & ~0x7) // get으로 다른 block의 주소를 얻어와 해당 블록의 size만 얻어옴 (~는 역수를 의미하므로 ~0x7은 11111000이 됨. 비트 연산을 통해 맨 뒤 세자리를 제외한 정보를 가져올 수 있게 됨.)
 #define GET_ALLOC(p) (GET(p) & 0x1) // get으로 다른 block의 주소를 얻어와 해당 블록의 alloc(가용여부)를 얻어옴
 
-#define HDRP(bp) ((char *)(bp)-WSIZE)                        // bp는 header다음에 위치하므로 WSIZE를 빼줘서 header를 가르키게 함
+#define HDRP(bp) ((char *)(bp)-WSIZE)                        // bp는 header다음에 위치하므로 (처음 init과 extend 제외) WSIZE를 빼줘서 header를 가르키게 함
 #define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE) // bp가 가리키는 block의 header로 이동해 해당 block의 사이즈만큼 이동하고 DSIZE를 빼주어 footer를 가르키게 함
 
 #define NEXT_HDRP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp)-WSIZE))) // bp가 가리키는 block의 header로 이동해 해당 block의 사이즈만 큼 이동 -> 다음 block의 header를 가리키게 됨
 #define PREV_FTRP(bp) (char *)(bp)-GET_SIZE(((char *)(bp)-DSIZE))     // bp는 block의 header 다음을 카리키고 있으므로 DSIZE를 빼서 이전 block의 footer로 가서 size를 가져와 빼줌. 이후 이전 block의 헤더 다음을 가리키게 함
 
 static char *heap_listp; // 처음에 쓸 가용블록을 생성
+
+void *extend_heap(size_t words)
+{
+    char *bp;
+    size_t size;
+    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE; // alignment 유지를 위해 짝수 개수의 words를 Allocate
+    if ((long)(bp = mem_sbrk(size)) == -1)
+    {
+        return NULL;
+    }
+
+    PUT(HDRP(bp), PACK(size, 0));         // free block header
+    PUT(FTRP(bp), PACK(size, 0));         // free block footer
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); // epilogue header 추가
+}
 
 int mm_init(void)
 {
@@ -67,6 +82,9 @@ int mm_init(void)
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1)); // prolog footer
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));     // epilog header
     heap_listp += (2 * WSIZE);
+
+    if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
+        return -1;
 
     return 0;
 }
