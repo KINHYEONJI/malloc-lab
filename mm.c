@@ -198,22 +198,19 @@ void mm_free(void *bp)
     coalesce(bp);                 // 전 후에 가용상태의 block 여부 확인 후 병합
 }
 
-/*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
- */
 void *mm_realloc(void *ptr, size_t size)
 {
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;
 
-    newptr = mm_malloc(size);
+    newptr = mm_malloc(size); // 재할당할 수 있는 가용 blockㅇ르 찾음
     if (newptr == NULL)
         return NULL;
-    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE);
-    if (size < copySize)
+    copySize = GET_SIZE(HDRP(oldptr)); // 재할당 하고자 하는 block의 원래 size
+    if (size < copySize)               // 재할당 하려는 size가 원래 size(copysize)보다 작을 경우
         copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
+    memcpy(newptr, oldptr, copySize); // 이전 block의 내용을 새로운 block으로 복사
+    mm_free(oldptr);                  // 이전 block을 해제
     return newptr;
 }
