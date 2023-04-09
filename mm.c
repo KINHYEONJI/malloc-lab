@@ -34,13 +34,27 @@ team_t team = {
     /* Second member’s email address (leave blank if none) */
     ""};
 
-/* single word (4) or double word (8) alignment */
-#define ALIGNMENT 8
+#define WSIZE 4             // word size
+#define DSIZE 8             // double word size
+#define CHUNKSIZE (1 << 12) // heap을 한번 extend할 때 늘리는 용량 (약 4kb)
 
-/* rounds up to the nearest multiple of ALIGNMENT */
-#define ALIGN(size) (((size) + (ALIGNMENT - 1)) & ~0x7)
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 
-#define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
+#define PACK(size, alloc) ((size) | (alloc)) // header와 footer에 블록 정보를 넣기 위함
+
+#define GET(p) (*(unsigned int *)(p))                   // 다른 block의 주소를 얻어옴
+#define PUT(p, val) (*(unsigned int *)(p) = (int)(val)) // block의 주소를 넣음
+
+#define GET_SIZE(p) (GET(p) & ~0x7) // get으로 다른 block의 주소를 얻어와 해당 블록의 size만 얻어옴 (~는 역수를 의미하므로 ~0x7은 11111000이 됨. 비트 연산을 통해 맨 뒤 세자리를 제외한 정보를 가져올 수 있게 됨.)
+#define GET_ALLOC(p) (GET(p) & 0x1) // get으로 다른 block의 주소를 얻어와 해당 블록의 alloc(가용여부)를 얻어옴
+
+#define HDRP(bp) ((char *)(bp)-WSIZE)                        // bp는 header다음에 위치하므로 WSIZE를 빼줘서 header를 가르키게 함
+#define FTRP(bp) ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE) // bp가 가리키는 block의 header로 이동해 해당 block의 사이즈만큼 이동하고 DSIZE를 빼주어 footer를 가르키게 함
+
+#define NEXT_HDRP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp)-WSIZE))) // bp가 가리키는 block의 header로 이동해 해당 block의 사이즈만 큼 이동 -> 다음 block의 header를 가리키게 됨
+#define PREV_FTRP(bp) (char *)(bp)-GET_SIZE(((char *)(bp)-DSIZE))     // bp는 block의 header 다음을 카리키고 있으므로 DSIZE를 빼서 이전 block의 footer로 가서 size를 가져와 빼줌. 이후 이전 block의 헤더 다음을 가리키게 함
+
+static char *heap_listp; // 처음에 쓸 가용블록을 생성
 
 /*
  * mm_init - initialize the malloc package.
