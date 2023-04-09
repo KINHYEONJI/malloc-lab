@@ -124,20 +124,29 @@ int mm_init(void)
     return 0;
 }
 
-/*
- * mm_malloc - Allocate a block by incrementing the brk pointer.
- *     Always allocate a block whose size is a multiple of the alignment.
- */
-void *mm_malloc(size_t size)
+void *mm_malloc(size_t size) // 가용 리스트에서 블록 할당 하기
 {
-    int newsize = ALIGN(size + SIZE_T_SIZE);
-    void *p = mem_sbrk(newsize);
-    if (p == (void *)-1)
+    size_t asize;      // 조정된 블록 사이즈
+    size_t extendsize; // heap에 맞는 fit이 없으면 확장하기 위한 사이즈
+    char *bp;
+
+    if (size == 0) // 잘못된 할당 요청
         return NULL;
+
+    if (size <= DSIZE)
+    {
+        asize = 2 * DSIZE; // block의 최소 사이즈는 16byte
+    }
     else
     {
-        *(size_t *)p = size;
-        return (void *)((char *)p + SIZE_T_SIZE);
+        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE); // round up 과정 (double word 정렬 제한 조건)
+    }
+
+    if ((bp = find_fit(asize)) != NULL) // fit 조건에 맞는 free list 검색
+    {
+    }
+    else // fit 조건에 맞는 block이 없을 경우 -> extend_heap을 통해 heap 확장
+    {
     }
 }
 
