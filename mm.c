@@ -190,11 +190,12 @@ void *mm_malloc(size_t size) // 가용 리스트에서 블록 할당 하기
     }
 }
 
-/*
- * mm_free - Freeing a block does nothing.
- */
-void mm_free(void *ptr)
+void mm_free(void *bp)
 {
+    size_t size = GET_SIZE(HDRP(bp));
+    PUT(HDRP(bp), PACK(size, 0)); // free header
+    PUT(FTRP(bp), PACK(size, 0)); // free footer
+    coalesce(bp);                 // 전 후에 가용상태의 block 여부 확인 후 병합
 }
 
 /*
