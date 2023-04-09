@@ -180,6 +180,13 @@ void *mm_malloc(size_t size) // 가용 리스트에서 블록 할당 하기
     }
     else // fit 조건에 맞는 block이 없을 경우 -> extend_heap을 통해 heap 확장
     {
+        extendsize = MAX(asize, CHUNKSIZE);                 // 할당 요청된 size (asize)와 CHUNKSIZE 중에 큰 값이 확장하려는 size(extendsize)가 됨
+        if ((bp = extend_heap(extendsize / WSIZE)) == NULL) // 정상적인 요청이 아닐 경우
+        {
+            return NULL;
+        }
+        place(bp, asize); // 새롭게 확장한 heap에 할당
+        return bp;
     }
 }
 
