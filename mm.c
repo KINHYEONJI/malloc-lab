@@ -56,11 +56,18 @@ team_t team = {
 
 static char *heap_listp; // 처음에 쓸 가용블록을 생성
 
-/*
- * mm_init - initialize the malloc package.
- */
 int mm_init(void)
 {
+    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *)-1) // mem_sbrk는 size를 추가하기 전 포인터(old_brk)를 반환, mem_brk는 size를 증가시킨 곳을 가리킴
+    {
+        return -1;
+    }
+    PUT(heap_listp, 0);                            // padding
+    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1)); // prolog header
+    PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1)); // prolog footer
+    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));     // epilog header
+    heap_listp += (2 * WSIZE);
+
     return 0;
 }
 
