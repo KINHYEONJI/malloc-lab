@@ -55,56 +55,10 @@ team_t team = {
 #define PREV_BLKP(bp) (char *)(bp)-GET_SIZE(((char *)(bp)-DSIZE))     // bp는 block의 header 다음을 카리키고 있으므로 DSIZE를 빼서 이전 block의 footer로 가서 size를 가져와 빼줌. 이후 이전 block의 헤더 다음을 가리키게 함
 
 static char *heap_listp; // 처음에 쓸 가용블록을 생성
-
-void *coalesce(void *bp) // prev, next 둘 다 할당, 둘 중 하나 할당, 둘 다 미할당 경우 나눠서 생각하기
-{
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp))); // prev block의 alloc 상태 ||  GET_ALLOC((char *)bp - DSIZE)
-    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp))); // next block의 alloc 상태 || GET_ALLOC(FTRP(bp) + WSIZE)
-    size_t size = GET_SIZE(HDRP(bp));                   // bp가 가리키는 block의 size
-
-    if (prev_alloc && next_alloc) // prev, next 모두 할당 상태 -> 그대로 반환
-    {
-        return bp;
-    }
-    else if (prev_alloc && !next_alloc) // prev 할당 상태, next 가용 상태 -> next와 병합
-    {
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 다음 block의 size를 알아낸 후 size 증가 || GET_SIZE(FTRP(bp) + WSIZE)
-        PUT(HDRP(bp), PACK(size, 0));          // header 갱신
-        PUT(FTRP(bp), PACK(size, 0));          // footer 갱신
-    }
-    else if (!prev_alloc && next_alloc) // prev 가용 상태, next 할당 상태 -> prev와 병합
-    {
-        size += GET_SIZE(HDRP(PREV_BLKP(bp)));   // 이전 block의 size를 알아낸 후 size 증가 || GET_SIZE((char *)(bp) - DSIZE)
-        PUT(FTRP(bp), PACK(size, 0));            // header 갱신
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0)); // footer 갱신
-        bp = PREV_BLKP(bp);
-    }
-    else // prev, next 모두 가용 상태 -> 전부 병합
-    {
-        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp))); // 앞 뒤 block의 size를 알아낸 후 size 증가
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));                               // header 갱신
-        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));                               // footer 갱신
-        bp = PREV_BLKP(bp);
-    }
-    return bp;
-}
-
-void *extend_heap(size_t words)
-{
-    char *bp;
-    size_t size;
-    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE; // alignment 유지를 위해 짝수 개수의 words를 Allocate
-    if ((long)(bp = mem_sbrk(size)) == -1)
-    {
-        return NULL;
-    }
-
-    PUT(HDRP(bp), PACK(size, 0));         // free block header
-    PUT(FTRP(bp), PACK(size, 0));         // free block footer
-    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); // epilogue header 추가
-
-    return coalesce(bp); // prev_block이 free라면 coalesce
-}
+static void *coalesce(void *bp);
+static void *extend_heap(size_t words);
+static void *find_fit(size_t asize);
+static void place(void *bp, size_t asize);
 
 int mm_init(void)
 {
@@ -122,37 +76,6 @@ int mm_init(void)
         return -1;
 
     return 0;
-}
-
-void *find_fit(size_t asize) // first-fit 시행
-{
-    void *bp;
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) // block들의 시작위치를 하나씩 증가시켜가면서 검색
-    {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) // 해당 block이 할당되지 않았고, block의 사이즈가 요구하는 size보다 크다면 할당
-        {
-            return bp;
-        }
-    }
-    return NULL;
-}
-
-void place(void *bp, size_t asize) // 가용 가능한 block(bp)에 요청한 사이즈(asize)의 block을 배치, 나머지 부분의 크기가 최소 블록크기와 같거나 큰 경우에 분할
-{
-    size_t csize = GET_SIZE(HDRP(bp));  // find_fit으로 찾은 가용 가능한 block의 size
-    if ((csize - asize) >= (2 * DSIZE)) // 요청한 size(asize)와 가용가능한 block의 사이즈(csize)의 차이가 DSIZE*2(최소 block)크기 보다 클 경우 (남은 부분에 다른 block을 넣을 수 있는 경우)
-    {
-        PUT(HDRP(bp), PACK(asize, 1)); // 배치를 요청힌 block의 header위치
-        PUT(FTRP(bp), PACK(asize, 1)); // 베치를 요청한 blcok의 footer위치
-        bp = NEXT_BLKP(bp);
-        PUT(HDRP(bp), PACK(csize - asize, 0)); // 분할된 block(가용 상태) header위치
-        PUT(FTRP(bp), PACK(csize - asize, 0)); // 분할된 block(가용 상태) footer위치
-    }
-    else // 요청한 size 만큼 block을 할당하고 남은 부분에 다른 block을 할당하지 못하는 경우 -> 분할 필요 없음
-    {
-        PUT(HDRP(bp), PACK(csize, 1)); // header위치
-        PUT(FTRP(bp), PACK(csize, 1)); // footer위치
-    }
 }
 
 void *mm_malloc(size_t size) // 가용 리스트에서 블록 할당 하기
@@ -213,4 +136,85 @@ void *mm_realloc(void *ptr, size_t size)
     memcpy(newptr, oldptr, copySize); // 이전 block의 내용을 새로운 block으로 복사
     mm_free(oldptr);                  // 이전 block을 해제
     return newptr;
+}
+
+static void *coalesce(void *bp) // prev, next 둘 다 할당, 둘 중 하나 할당, 둘 다 미할당 경우 나눠서 생각하기
+{
+    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp))); // prev block의 alloc 상태 ||  GET_ALLOC((char *)bp - DSIZE)
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp))); // next block의 alloc 상태 || GET_ALLOC(FTRP(bp) + WSIZE)
+    size_t size = GET_SIZE(HDRP(bp));                   // bp가 가리키는 block의 size
+
+    if (prev_alloc && next_alloc) // prev, next 모두 할당 상태 -> 그대로 반환
+    {
+        return bp;
+    }
+    else if (prev_alloc && !next_alloc) // prev 할당 상태, next 가용 상태 -> next와 병합
+    {
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp))); // 다음 block의 size를 알아낸 후 size 증가 || GET_SIZE(FTRP(bp) + WSIZE)
+        PUT(HDRP(bp), PACK(size, 0));          // header 갱신
+        PUT(FTRP(bp), PACK(size, 0));          // footer 갱신
+    }
+    else if (!prev_alloc && next_alloc) // prev 가용 상태, next 할당 상태 -> prev와 병합
+    {
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));   // 이전 block의 size를 알아낸 후 size 증가 || GET_SIZE((char *)(bp) - DSIZE)
+        PUT(FTRP(bp), PACK(size, 0));            // header 갱신
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0)); // footer 갱신
+        bp = PREV_BLKP(bp);
+    }
+    else // prev, next 모두 가용 상태 -> 전부 병합
+    {
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp))); // 앞 뒤 block의 size를 알아낸 후 size 증가
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));                               // header 갱신
+        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));                               // footer 갱신
+        bp = PREV_BLKP(bp);
+    }
+    return bp;
+}
+
+static void *extend_heap(size_t words)
+{
+    char *bp;
+    size_t size;
+    size = (words % 2) ? (words + 1) * WSIZE : words * WSIZE; // alignment 유지를 위해 짝수 개수의 words를 Allocate
+    if ((long)(bp = mem_sbrk(size)) == -1)
+    {
+        return NULL;
+    }
+
+    PUT(HDRP(bp), PACK(size, 0));         // free block header
+    PUT(FTRP(bp), PACK(size, 0));         // free block footer
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); // epilogue header 추가
+
+    return coalesce(bp); // prev_block이 free라면 coalesce
+}
+
+static void *find_fit(size_t asize) // first-fit 시행
+{
+    void *bp;
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) // block들의 시작위치를 하나씩 증가시켜가면서 검색
+    {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) // 해당 block이 할당되지 않았고, block의 사이즈가 요구하는 size보다 크다면 할당
+        {
+            return bp;
+        }
+    }
+    return NULL;
+}
+
+static void place(void *bp, size_t asize) // 가용 가능한 block(bp)에 요청한 사이즈(asize)의 block을 배치, 나머지 부분의 크기가 최소 블록크기와 같거나 큰 경우에 분할
+{
+    size_t csize = GET_SIZE(HDRP(bp));  // find_fit으로 찾은 가용 가능한 block의 size
+    if ((csize - asize) >= (2 * DSIZE)) // 요청한 size(asize)와 가용가능한 block의 사이즈(csize)의 차이가 DSIZE*2(최소 block)크기 보다 클 경우 (남은 부분에 다른 block을 넣을 수 있는 경우)
+    {
+        PUT(HDRP(bp), PACK(asize, 1)); // 배치를 요청힌 block의 header위치
+        PUT(FTRP(bp), PACK(asize, 1)); // 베치를 요청한 blcok의 footer위치
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(csize - asize, 0)); // 분할된 block(가용 상태) header위치
+        PUT(FTRP(bp), PACK(csize - asize, 0)); // 분할된 block(가용 상태) footer위치
+    }
+    else // 요청한 size 만큼 block을 할당하고 남은 부분에 다른 block을 할당하지 못하는 경우 -> 분할 필요 없음
+    {
+        PUT(HDRP(bp), PACK(csize, 1)); // header위치
+        PUT(FTRP(bp), PACK(csize, 1)); // footer위치
+    }
 }
