@@ -57,7 +57,7 @@ team_t team = {
 static char *heap_listp; // 처음에 쓸 가용블록을 생성
 static void *coalesce(void *bp);
 static void *extend_heap(size_t words);
-static void *find_fit(size_t asize);
+static void *find_first_fit(size_t asize);
 static void place(void *bp, size_t asize);
 
 int mm_init(void)
@@ -96,7 +96,7 @@ void *mm_malloc(size_t size) // 가용 리스트에서 블록 할당 하기
         asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE); // round up 과정 (double word 정렬 제한 조건)
     }
 
-    if ((bp = find_fit(asize)) != NULL) // fit 조건에 맞는 free list 검색
+    if ((bp = find_first_fit(asize)) != NULL) // fit 조건에 맞는 free list 검색
     {
         place(bp, asize);
         return bp;
@@ -188,7 +188,7 @@ static void *extend_heap(size_t words)
     return coalesce(bp); // prev_block이 free라면 coalesce
 }
 
-static void *find_fit(size_t asize) // first-fit 시행
+static void *find_first_fit(size_t asize) // first-fit 시행
 {
     void *bp;
     for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) // block들의 시작위치를 하나씩 증가시켜가면서 검색
@@ -203,7 +203,7 @@ static void *find_fit(size_t asize) // first-fit 시행
 
 static void place(void *bp, size_t asize) // 가용 가능한 block(bp)에 요청한 사이즈(asize)의 block을 배치, 나머지 부분의 크기가 최소 블록크기와 같거나 큰 경우에 분할
 {
-    size_t csize = GET_SIZE(HDRP(bp));  // find_fit으로 찾은 가용 가능한 block의 size
+    size_t csize = GET_SIZE(HDRP(bp));  // find_first_fit으로 찾은 가용 가능한 block의 size
     if ((csize - asize) >= (2 * DSIZE)) // 요청한 size(asize)와 가용가능한 block의 사이즈(csize)의 차이가 DSIZE*2(최소 block)크기 보다 클 경우 (남은 부분에 다른 block을 넣을 수 있는 경우)
     {
         PUT(HDRP(bp), PACK(asize, 1)); // 배치를 요청힌 block의 header위치
