@@ -55,6 +55,7 @@ team_t team = {
 #define PREV_BLKP(bp) (char *)(bp)-GET_SIZE(((char *)(bp)-DSIZE))     // bp는 block의 header 다음을 카리키고 있으므로 DSIZE를 빼서 이전 block의 footer로 가서 size를 가져와 빼줌. 이후 이전 block의 헤더 다음을 가리키게 함
 
 static char *heap_listp; // 처음 생성한 block의 pointer (시작점)
+static char *start_nextfit;
 static void *coalesce(void *bp);
 static void *extend_heap(size_t words);
 static void *find_next_fit(size_t asize);
@@ -71,6 +72,7 @@ int mm_init(void)
     PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1)); // prolog footer
     PUT(heap_listp + (3 * WSIZE), PACK(0, 1));     // epilog header
     heap_listp += (2 * WSIZE);
+    start_nextfit = heap_listp;
 
     if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
         return -1;
@@ -96,7 +98,7 @@ void *mm_malloc(size_t size) // 가용 리스트에서 블록 할당 하기
         asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE); // round up 과정 (double word 정렬 제한 조건)
     }
 
-    if ((bp = find_first_fit(asize)) != NULL) // fit 조건에 맞는 free list 검색
+    if ((bp = find_next_fit(asize)) != NULL) // fit 조건에 맞는 free list 검색
     {
         place(bp, asize);
         return bp;
@@ -146,6 +148,7 @@ static void *coalesce(void *bp) // prev, next 둘 다 할당, 둘 중 하나 할
 
     if (prev_alloc && next_alloc) // prev, next 모두 할당 상태 -> 그대로 반환
     {
+        start_nextfit = bp;
         return bp;
     }
     else if (prev_alloc && !next_alloc) // prev 할당 상태, next 가용 상태 -> next와 병합
@@ -168,6 +171,7 @@ static void *coalesce(void *bp) // prev, next 둘 다 할당, 둘 중 하나 할
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));                               // footer 갱신
         bp = PREV_BLKP(bp);
     }
+    start_nextfit = bp;
     return bp;
 }
 
@@ -190,6 +194,19 @@ static void *extend_heap(size_t words)
 
 static void *find_next_fit(size_t asize) // first-fit 시행
 {
+    void *bp;
+
+    for (bp = start_nextfit; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+            return bp;
+    }
+    for (bp = heap_listp; bp != start_nextfit; bp = NEXT_BLKP(bp)) // 이전에 넣었던 block 이후에 넣을 수 있는 공간이 없는 경우 다시 초반(heap_listp)으로 돌아감
+    {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+            return bp;
+    }
+    return NULL;
 }
 
 static void place(void *bp, size_t asize) // 가용 가능한 block(bp)에 요청한 사이즈(asize)의 block을 배치, 나머지 부분의 크기가 최소 블록크기와 같거나 큰 경우에 분할
