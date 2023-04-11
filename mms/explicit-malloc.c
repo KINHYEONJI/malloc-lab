@@ -34,9 +34,9 @@ team_t team = {
     /* Second member’s email address (leave blank if none) */
     ""};
 
-#define WSIZE 4             // word size
-#define DSIZE 8             // double word size
-#define CHUNKSIZE (1 << 12) // heap을 한번 extend할 때 늘리는 용량 (약 4kb)
+#define WSIZE sizeof(void *) // pointer의 크기 (32bit -> WSIZE = 4 / 64bit -> WSIZE = 8)
+#define DSIZE (2 * WSIZE)    // double word size
+#define CHUNKSIZE (1 << 12)  // heap을 한번 extend할 때 늘리는 용량 (약 4kb)
 
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 
