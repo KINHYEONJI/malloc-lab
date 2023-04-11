@@ -60,3 +60,25 @@ team_t team = {
 
 static char *heap_listp;
 static char *free_listp; // 가용블록들만 저장할 free_listp 생성
+
+int mm_init(void)
+{
+    if ((heap_listp = mem_sbrk(6 * WSIZE)) == (void *)-1)
+    {
+        return -1;
+    }
+    PUT(heap_listp, 0);
+    PUT(heap_listp + (1 * WSIZE), PACK(DSIZE * 2, 1)); // implicit에선 prolog header, prolog footer만 있엇기에 dsize였지만, explicit에선 전위자(p), 후위자(s)가 있음
+    PUT(heap_listp + (2 * WSIZE), NULL);               // predecessor
+    PUT(heap_listp + (3 * WSIZE), NULL);               // successor
+    PUT(heap_listp + (4 * WSIZE), PACK(DSIZE * 2, 1));
+    PUT(heap_listp + (5 * WSIZE), PACK(0, 1));
+    heap_listp += (2 * WSIZE);
+
+    free_listp = heap_listp;
+
+    if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
+        return -1;
+
+    return 0;
+}
