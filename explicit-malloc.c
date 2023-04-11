@@ -64,6 +64,7 @@ static char *free_listp; // 가용블록들만 저장할 free_listp 생성
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void put_freelist(void *bp);
+static void *find_fit(size_t asize);
 
 int mm_init(void)
 {
@@ -161,4 +162,17 @@ static void put_freelist(void *bp)
     ------------------------------------
     */
     free_listp = bp; // free_listp가 stack에서 가장 최근에 들어온 block을 가리기게 함
+}
+
+static void *find_fit(size_t asize)
+{
+    void *bp;
+    for (bp = free_listp; GET_ALLOC(HDRP(bp)) == 0; bp = NEXT_FREEP(bp)) // free_listp의 block들을 순회
+    {
+        if (GET_SIZE(HDRP(bp)) >= asize) // size가 적합할 시에 해당 bp를 반환
+        {
+            return bp;
+        }
+    }
+    return NULL;
 }
