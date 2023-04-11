@@ -66,6 +66,7 @@ static void *coalesce(void *bp);
 static void put_freelist(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
+static void remove_in_freelist(void *bp);
 
 int mm_init(void)
 {
@@ -230,5 +231,19 @@ static void place(void *bp, size_t asize)
     {
         PUT(HDRP(bp), PACK(csize, 1));
         PUT(FTRP(bp), PACK(csize, 1));
+    }
+}
+
+static void remove_in_freelist(void *bp)
+{
+    if (bp == free_listp) // bp가 stack 첫(가장 최근에 들어온) 블록일 경우
+    {
+        PREV_FREEP(NEXT_FREEP(bp)) = NULL;
+        free_listp = NEXT_FREEP(bp);
+    }
+    else // 가운데 블록일 경우
+    {
+        NEXT_FREEP(PREV_FREEP(bp)) = NEXT_FREEP(bp); // linked list 중간 삭제 처럼 bp의 전후를 이어주는 과정
+        PREV_FREEP(NEXT_FREEP(bp)) = PREV_FREEP(bp);
     }
 }
