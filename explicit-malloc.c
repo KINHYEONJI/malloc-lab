@@ -61,7 +61,9 @@ team_t team = {
 static char *heap_listp;
 static char *free_listp; // 가용블록들만 저장할 free_listp 생성
 
+static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
+static void put_freelist(void *bp);
 
 int mm_init(void)
 {
@@ -111,7 +113,7 @@ static void *coalesce(void *bp)
 
     if (prev_alloc && next_alloc)
     {
-        put_front_of_freelist(bp);
+        put_freelist(bp);
         return bp;
     }
     else if (prev_alloc && !next_alloc)
@@ -139,6 +141,24 @@ static void *coalesce(void *bp)
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
-    put_front_of_freelist(bp);
+    put_freelist(bp);
     return bp;
+}
+
+static void put_freelist(void *bp)
+{
+    NEXT_FREEP(bp) = free_listp; // 현재 block NEXT freeblock을 카리키는 포인터는 free_listp
+    PREV_FREEP(bp) = NULL;       // 현재 block이 스택에서 가장 마지막 block일테니 현재 블록의 PREV는 NULL
+    PREV_FREEP(free_listp) = bp; // free_listp의 PREV는 현재 block
+    /*
+         prev                   next
+    ------------------------------------
+             PREV_FREEP(free_listp)    |
+ NULL <---  ------   <---    ------    |
+           |  24  |         |  8   |   |
+            ------   --->    ------    |
+                NEXT_FREEP(bp)         |
+    ------------------------------------
+    */
+    free_listp = bp; // free_listp가 stack에서 가장 최근에 들어온 block을 가리기게 함
 }
