@@ -61,6 +61,8 @@ team_t team = {
 static char *heap_listp;
 static char *free_listp; // 가용블록들만 저장할 free_listp 생성
 
+static void *coalesce(void *bp);
+
 int mm_init(void)
 {
     if ((heap_listp = mem_sbrk(6 * WSIZE)) == (void *)-1)
@@ -99,4 +101,44 @@ static void *extend_heap(size_t words)
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
 
     return coalesce(bp);
+}
+
+static void *coalesce(void *bp)
+{
+    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
+    size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
+    size_t size = GET_SIZE(HDRP(bp));
+
+    if (prev_alloc && next_alloc)
+    {
+        put_front_of_freelist(bp);
+        return bp;
+    }
+    else if (prev_alloc && !next_alloc)
+    {
+        remove_in_freelist(NEXT_BLKP(bp));
+        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size, 0));
+    }
+    else if (!prev_alloc && next_alloc)
+    {
+        remove_in_freelist(PREV_BLKP(bp));
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+        bp = PREV_BLKP(bp);
+        PUT(HDRP(bp), PACK(size, 0));
+        PUT(FTRP(bp), PACK(size, 0));
+    }
+    else
+    {
+        remove_in_freelist(PREV_BLKP(bp));
+        remove_in_freelist(NEXT_BLKP(bp));
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) +
+                GET_SIZE(FTRP(NEXT_BLKP(bp)));
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+        bp = PREV_BLKP(bp);
+    }
+    put_front_of_freelist(bp);
+    return bp;
 }
