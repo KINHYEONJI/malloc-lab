@@ -68,6 +68,7 @@ static void *coalesce(void *bp);
 static void put_block_in_seglist(void *bp, size_t size);
 static void remove_block_in_seglist(void *bp);
 static void *find_fit(size_t asize);
+static void place(void *bp, size_t asize);
 
 int mm_init(void)
 {
@@ -306,4 +307,26 @@ static void *find_fit(size_t asize)
         idx++;
     }
     return NULL; // seg_list의 끝까지 돌았으나 가용블록을 찾지 못했을 때 NULL 반환
+}
+
+static void place(void *bp, size_t asize)
+{
+    size_t csize = GET_SIZE(HDRP(bp)); // 현재 할당할 수 있는 후보 가용 블록의 주소
+
+    remove_block_in_seglist(bp); // 할당될 블록이므로 free list에서 삭제
+
+    if ((csize - asize) >= (2 * DSIZE)) // 사용하고 남은 필요한 블록의 크기가 16바이트 이상이면
+    {
+        PUT(HDRP(bp), PACK(asize, 1)); // 사용할 만큼(asize) 할당
+        PUT(FTRP(bp), PACK(asize, 1));
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(csize - asize, 0)); // 남은만큼 free처리
+        PUT(FTRP(bp), PACK(csize - asize, 0));
+        coalesce(bp);
+    }
+    else // 남는게 16바이트 미만이면 남은 부분은 어짜피 사용 불가능
+    {
+        PUT(HDRP(bp), PACK(csize, 1));
+        PUT(FTRP(bp), PACK(csize, 1));
+    }
 }
