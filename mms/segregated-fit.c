@@ -91,6 +91,43 @@ int mm_init(void)
     return 0;
 }
 
+void *mm_malloc(size_t size)
+{
+    size_t asize;
+    size_t extendsize;
+    char *bp;
+
+    if (size <= 0)
+    {
+        return NULL;
+    }
+
+    if (size <= DSIZE)
+    {
+        asize = 2 * DSIZE;
+    }
+    else
+    {
+        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
+    }
+
+    if ((bp = find_fit(asize)) != NULL)
+    {
+        place(bp, asize);
+        return bp;
+    }
+    else
+    {
+        extendsize = MAX(asize, CHUNKSIZE);
+        if ((bp = extend_heap(extendsize / WSIZE)) == NULL)
+        {
+            return NULL;
+        }
+        place(bp, asize);
+        return bp;
+    }
+}
+
 static void *extend_heap(size_t words)
 {
     char *bp;
