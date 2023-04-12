@@ -137,6 +137,23 @@ void mm_free(void *bp)
     coalesce(bp);                 // 앞, 뒤로 합칠 수 있는게 있나 확인하고 합치기
 }
 
+void *mm_realloc(void *ptr, size_t size)
+{
+    void *oldptr = ptr;
+    void *newptr;
+    size_t copySize;
+
+    newptr = mm_malloc(size);
+    if (newptr == NULL)
+        return NULL;
+    copySize = GET_SIZE(HDRP(oldptr));
+    if (size < copySize)
+        copySize = size;
+    memcpy(newptr, oldptr, copySize);
+    mm_free(oldptr);
+    return newptr;
+}
+
 static void *extend_heap(size_t words)
 {
     char *bp;
