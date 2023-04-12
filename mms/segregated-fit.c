@@ -65,6 +65,7 @@ static void *seg_list[LISTLIMIT];
 
 static void *extend_heap(size_t words);
 static void put_block_in_seglist(void *bp, size_t size);
+static void remove_block_in_seglist(void *bp);
 
 int mm_init(void)
 {
@@ -156,6 +157,44 @@ static void put_block_in_seglist(void *bp, size_t size)
             SUCC_FREEP(bp) = NULL;
             PREC_FREEP(bp) = NULL;
             seg_list[idx] = bp;
+        }
+    }
+    return;
+}
+
+static void remove_block_in_seglist(void *bp)
+{
+    int idx = 0;
+    size_t size = GET_SIZE(HDRP(bp));
+
+    while ((idx < LISTLIMIT - 1) && (size > 1)) // size가 들어갈 수 있는 seglist index를 찾는 과정
+    {
+        size >>= 1; // size의 비트를 1씩 오른쪽으로 shift 시키고
+        idx++;      // idx를 하나씩 증가 시켜 해당 블록이 들어갈 seg_list index찾음
+    }
+
+    if (SUCC_FREEP(bp) != NULL)
+    {
+        if (PREC_FREEP(bp) != NULL) // case1 : 지우려는 block이 가운데에 있을 경우
+        {
+            PREC_FREEP(SUCC_FREEP(bp)) = PREC_FREEP(bp);
+            SUCC_FREEP(PREC_FREEP(bp)) = SUCC_FREEP(bp);
+        }
+        else // case2 : 지우려는 block이 제일 앞일 경우
+        {
+            PREC_FREEP(SUCC_FREEP(bp)) = NULL;
+            seg_list[idx] = SUCC_FREEP(bp);
+        }
+    }
+    else
+    {
+        if (PREC_FREEP(bp) != NULL) // case3 : 지우려는 block이 제일 뒤일 경우
+        {
+            SUCC_FREEP(PREC_FREEP(bp)) = NULL;
+        }
+        else // case4 : 지우려는 block이 해당 seg_list[idx]에 홀로 있을 경우
+        {
+            seg_list[idx] = NULL;
         }
     }
     return;
