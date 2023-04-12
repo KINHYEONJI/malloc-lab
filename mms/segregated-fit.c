@@ -67,6 +67,7 @@ static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void put_block_in_seglist(void *bp, size_t size);
 static void remove_block_in_seglist(void *bp);
+static void *find_fit(size_t asize);
 
 int mm_init(void)
 {
@@ -241,4 +242,31 @@ static void remove_block_in_seglist(void *bp)
         }
     }
     return;
+}
+
+static void *find_fit(size_t asize)
+{
+    void *bp;
+    int idx = 0;
+    size_t searchsize = asize;
+
+    while (idx < LISTLIMIT) // 찾으려는 사이즈가 있는 seg_list의 idx를 찾아 들어가는 과정
+    {
+        if (searchsize <= 1) // asize가 들어갈 곳을 >>=1 연산을 통해 찾은 경우
+        {
+            bp = seg_list[idx]; // bp가 NULL일 경우 하단의 while, if문을 뛰어넘어 바로 다음 index 검사
+
+            while ((bp != NULL) && (asize > GET_SIZE(HDRP(bp)))) // seg_list[idx]에서 asize보다 큰 block중 가장 작은 block을 찾는 과정
+            {
+                bp = SUCC_FREEP(bp);
+            }
+            if (bp != NULL) // bp가 NULL이라면 asize보다 같거나 큰 가용블록이 현재 seg_list[idx]에 없다는 뜻이므로 다음 index를 검사하러 감
+            {
+                return bp;
+            }
+        }
+        searchsize >>= 1;
+        idx++;
+    }
+    return NULL; // seg_list의 끝까지 돌았으나 가용블록을 찾지 못했을 때 NULL 반환
 }
