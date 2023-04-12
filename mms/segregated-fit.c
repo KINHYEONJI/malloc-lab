@@ -62,3 +62,25 @@ team_t team = {
 
 static char *heap_listp;
 static void *seg_list[LISTLIMIT];
+
+int mm_init(void)
+{
+    for (int i = 0; i < LISTLIMIT; i++)
+    {
+        seg_list[i] = NULL;
+    }
+    if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *)-1)
+        return -1;
+
+    PUT(heap_listp, 0);
+    PUT(heap_listp + (1 * WSIZE), PACK(MINIMUM, 1));
+    PUT(heap_listp + (2 * WSIZE), PACK(MINIMUM, 1));
+    PUT(heap_listp + (3 * WSIZE), PACK(0, 1));
+    heap_listp = heap_listp + 2 * WSIZE;
+
+    if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
+    {
+        return -1;
+    }
+    return 0;
+}
