@@ -129,6 +129,14 @@ void *mm_malloc(size_t size)
     }
 }
 
+void mm_free(void *bp)
+{
+    size_t size = GET_SIZE(HDRP(bp));
+    PUT(HDRP(bp), PACK(size, 0)); // header 갱신
+    PUT(FTRP(bp), PACK(size, 0)); // footer 갱신
+    coalesce(bp);                 // 앞, 뒤로 합칠 수 있는게 있나 확인하고 합치기
+}
+
 static void *extend_heap(size_t words)
 {
     char *bp;
