@@ -63,6 +63,8 @@ team_t team = {
 static char *heap_listp;
 static void *seg_list[LISTLIMIT];
 
+static void *extend_heap(size_t words);
+
 int mm_init(void)
 {
     for (int i = 0; i < LISTLIMIT; i++)
@@ -83,4 +85,22 @@ int mm_init(void)
         return -1;
     }
     return 0;
+}
+
+static void *extend_heap(size_t words)
+{
+    char *bp;
+    size_t size;
+    size = (words % 2) ? (words + 1) * WSIZE : (words)*WSIZE;
+
+    if (((bp = mem_sbrk(size)) == (void *)-1))
+    {
+        return NULL;
+    }
+
+    PUT(HDRP(bp), PACK(size, 0));
+    PUT(FTRP(bp), PACK(size, 0));
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
+
+    return coalesce(bp);
 }
