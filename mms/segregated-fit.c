@@ -64,6 +64,7 @@ static char *heap_listp;
 static void *seg_list[LISTLIMIT];
 
 static void *extend_heap(size_t words);
+static void put_block_in_seglist(void *bp, size_t size);
 
 int mm_init(void)
 {
@@ -103,4 +104,59 @@ static void *extend_heap(size_t words)
     PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
 
     return coalesce(bp);
+}
+
+static void put_block_in_seglist(void *bp, size_t size)
+{
+    int idx = 0;
+    void *search_ptr;
+    void *insert_ptr = NULL; // 두 번째 while문에서 사용. search_ptr의 값을 저장해놓는 용도
+
+    while ((idx < LISTLIMIT - 1) && (size > 1)) // size가 들어갈 수 있는 seglist index를 찾는 과정
+    {
+        size >>= 1; // size의 비트를 1씩 오른쪽으로 shift 시키고
+        idx++;      // idx를 하나씩 증가 시켜 해당 블록이 들어갈 seg_list index찾음
+    }
+
+    search_ptr = seg_list[idx];
+
+    while ((search_ptr != NULL) && (size > GET_SIZE(HDRP(search_ptr)))) // seg_list[idx]에서 몇 번째 원소가 될지 찾는 과정
+    {
+        insert_ptr = search_ptr;
+        search_ptr = SUCC_FREEP(search_ptr);
+    }
+
+    if (search_ptr != NULL)
+    {
+        if (insert_ptr != NULL) // case1 : seg_list[idx]의 중간에 넣을 때
+        {
+            SUCC_FREEP(bp) = search_ptr;
+            PREC_FREEP(bp) = insert_ptr;
+            PREC_FREEP(search_ptr) = bp;
+            SUCC_FREEP(insert_ptr) = bp;
+        }
+        else // case2 : seg_list[idx]의 제일 앞에 넣을 때
+        {
+            SUCC_FREEP(bp) = search_ptr;
+            PREC_FREEP(bp) = NULL;
+            PREC_FREEP(search_ptr) = bp;
+            seg_list[idx] = bp;
+        }
+    }
+    else
+    {
+        if (insert_ptr != NULL) // case3 : seg_list[idx]의 제일 마지막에 넣을 때
+        {
+            SUCC_FREEP(bp) = NULL;
+            PREC_FREEP(bp) = insert_ptr;
+            SUCC_FREEP(insert_ptr) = bp;
+        }
+        else // case4 : seg_list[idx]가 NULL일 때 (아무것도 없고 해당 블록이 첫 원소가 될 때)
+        {
+            SUCC_FREEP(bp) = NULL;
+            PREC_FREEP(bp) = NULL;
+            seg_list[idx] = bp;
+        }
+    }
+    return;
 }
