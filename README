@@ -1,52 +1,45 @@
-#####################################################################
-# CS:APP Malloc Lab
-# Handout files for students
-#
-# Copyright (c) 2002, R. Bryant and D. O'Hallaron, All rights reserved.
-# May not be used, modified, or copied without permission.
-#
-######################################################################
+# C언어의 `malloc`과 `free`를 직접 구현하는 프로젝트입니다.
 
-***********
-Main Files:
-***********
+<br>
 
-mm.{c,h}	
-	Your solution malloc package. mm.c is the file that you
-	will be handing in, and is the only file you should modify.
+### 직접 정리한 블로그 link
+[동적할당 vs 정적할당 ](https://velog.io/@hyeon_zip/%EB%8F%99%EC%A0%81%ED%95%A0%EB%8B%B9-vs-%EC%A0%95%EC%A0%81%ED%95%A0%EB%8B%B9)
 
-mdriver.c	
-	The malloc driver that tests your mm.c file
+[묵시적 vs 명시적](https://velog.io/@hyeon_zip/C%EC%96%B8%EC%96%B4-%EB%AC%B5%EC%8B%9C%EC%A0%81Implicit-vs-%EB%AA%85%EC%8B%9C%EC%A0%81explicit)
 
-short{1,2}-bal.rep
-	Two tiny tracefiles to help you get started. 
+[Implicit-free-list 알아보기](https://velog.io/@hyeon_zip/C%EC%96%B8%EC%96%B4-malloc-%EA%B5%AC%ED%98%84%ED%95%98%EA%B8%B0)
 
-Makefile	
-	Builds the driver
+[Explicit-free-list 알아보기]
+---
 
-**********************************
-Other support files for the driver
-**********************************
+### 세팅방법
+```
+# ubuntu 환경
+sudo apt update
+sudo apt install build-essential
+sudo apt install gdb
+sudo apt-get install gcc-multilib g++-multilib
 
-config.h	Configures the malloc lab driver
-fsecs.{c,h}	Wrapper function for the different timer packages
-clock.{c,h}	Routines for accessing the Pentium and Alpha cycle counters
-fcyc.{c,h}	Timer functions based on cycle counters
-ftimer.{c,h}	Timer functions based on interval timers and gettimeofday()
-memlib.{c,h}	Models the heap and sbrk function
+git clone https://github.com/KINHYEONJI/malloc-lab.git
+```
+---
+## 파일 설명
 
-*******************************
-Building and running the driver
-*******************************
-To build the driver, type "make" to the shell.
+implicit(first-fit, next-fit), explicit, segregated-fit 총 `4가지 방식`으로 구현하였습니다.
 
-To run the driver on a tiny test trace:
+- mm.c 파일에는 implicit(first-fit)방식이 구현되어 있습니다.
 
-	unix> mdriver -V -f short1-bal.rep
+- mms 디렉토리에는 implicit(next-fit), explicit, segregated-fit 3가지 방식으로 구현한 파일이 있습니다.
 
-The -V option prints out helpful tracing and summary information.
+---
+## 실행방법
+```
+#mm.c 실행방법
+make
+./mdriver
 
-To get a list of the driver flags:
-
-	unix> mdriver -h
-
+# mms에 있는 다른 파일의 내용을 복사하여 mm.c에 붙여넣으면 다른 방식으로 테스트 하는 방법
+make clear
+make
+./mdriver
+```
